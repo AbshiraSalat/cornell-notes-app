@@ -9,6 +9,7 @@ import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import ClassNotes from './pages/ClassNotes';
 import NoteEditor from './pages/NoteEditor';
+import SharedNote from ',/pages/SharedNote';
 
 function App() {
   const theme = useStore(state => state.theme);
@@ -24,7 +25,7 @@ function App() {
           <Route path="/class/:classId" element={<ClassNotes />} />
           <Route path="/note/:noteId" element={<NoteEditor />} />
           <Route path="*" element={<Navigate to="/login" />} />
-          <Route path="/share/:noteId" element={<PublicNote />} />
+          <Route path="/share/:noteId" element={<SharedNote />} />
         </Routes>
 
         <Toaster position="top-right" />
