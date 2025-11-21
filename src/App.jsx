@@ -2,14 +2,17 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useStore } from './store/useStore';
-import PublicNote from './pages/PublicNote';
+import SharedNote from './pages/SharedNote';
+
+
 
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import ClassNotes from './pages/ClassNotes';
 import NoteEditor from './pages/NoteEditor';
-import SharedNote from ',/pages/SharedNote';
+import SharedNote from './pages/SharedNote';
+
 
 function App() {
   const theme = useStore(state => state.theme);
