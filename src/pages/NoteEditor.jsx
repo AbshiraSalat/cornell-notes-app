@@ -1,67 +1,8 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { debounce } from '../utils/helpers';
 import toast from 'react-hot-toast';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
-
-// Custom styles for Quill to match your theme
-const quillStyles = `
-  .ql-editor {
-    min-height: 200px;
-    font-size: 16px;
-    line-height: 1.6;
-  }
-  .ql-editor.ql-blank::before {
-    font-style: normal;
-    color: #9ca3af;
-  }
-  .dark .ql-toolbar {
-    border-color: #374151 !important;
-    background: #1f2937;
-  }
-  .dark .ql-container {
-    border-color: #374151 !important;
-  }
-  .dark .ql-editor {
-    color: #f3f4f6;
-  }
-  .dark .ql-stroke {
-    stroke: #9ca3af !important;
-  }
-  .dark .ql-fill {
-    fill: #9ca3af !important;
-  }
-  .dark .ql-picker-label {
-    color: #9ca3af !important;
-  }
-  .dark .ql-picker-options {
-    background: #1f2937 !important;
-    border-color: #374151 !important;
-  }
-  .dark .ql-picker-item {
-    color: #f3f4f6 !important;
-  }
-  .light .ql-toolbar {
-    border-color: #d1d5db !important;
-    background: #f9fafb;
-  }
-  .light .ql-container {
-    border-color: #d1d5db !important;
-  }
-  .minimal-editor .ql-toolbar {
-    border: none !important;
-    border-bottom: 1px solid #e5e7eb !important;
-    padding: 8px 12px;
-  }
-  .minimal-editor .ql-container {
-    border: none !important;
-  }
-  .dark .minimal-editor .ql-toolbar {
-    border-bottom-color: #374151 !important;
-  }
-`;
 
 const NoteEditor = () => {
   const { noteId } = useParams();
@@ -78,105 +19,45 @@ const NoteEditor = () => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
 
-  // Quill modules configuration
-  const questionsModules = useMemo(() => ({
-    toolbar: [
-      ['bold', 'italic', 'underline'],
-      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-    ]
-  }), []);
-
-  const mainNotesModules = useMemo(() => ({
-    toolbar: [
-      [{ 'header': [1, 2, 3, false] }],
-      ['bold', 'italic', 'underline', 'strike'],
-      [{ 'color': [] }, { 'background': [] }],
-      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-      [{ 'indent': '-1'}, { 'indent': '+1' }],
-      ['blockquote', 'code-block'],
-      ['link', 'image'],
-      ['clean']
-    ]
-  }), []);
-
-  const summaryModules = useMemo(() => ({
-    toolbar: [
-      ['bold', 'italic', 'underline'],
-      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-      ['link']
-    ]
-  }), []);
-
-  const formats = [
-    'header',
-    'bold', 'italic', 'underline', 'strike',
-    'color', 'background',
-    'list', 'bullet', 'indent',
-    'blockquote', 'code-block',
-    'link', 'image'
-  ];
-
-  // Load notes on mount - only once
+  // Load notes on mount
   useEffect(() => {
     const loadData = async () => {
-      console.log('🔵 NoteEditor mounting...');
-      console.log('User exists?', !!user);
-      
       if (!user) {
-        console.log('⏳ Waiting for user authentication...');
         setIsLoading(true);
         return;
       }
-      
       setIsLoading(true);
-      
-      console.log('🔵 Loading notes from Firebase for user:', user.uid);
       await loadNotes();
-      
       await new Promise(resolve => setTimeout(resolve, 300));
-      
-      const currentNotes = useStore.getState().notes;
-      console.log('✅ Notes loaded:', currentNotes.length);
-      
       setIsLoading(false);
     };
     
     loadData();
-  }, [user]);
+  }, [user, loadNotes]);
 
-  // Find and set note - only when notes change or noteId changes
+  // Find note when notes load
   useEffect(() => {
     if (isLoading) return;
-    
-    console.log('🔵 Looking for note ID:', noteId);
-    console.log('Available notes:', notes.length);
-    
     const note = notes.find(n => n.id === noteId);
-    
     if (note && !isInitialized) {
-      console.log('✅ Note found, initializing editor');
       setCurrentNote(note);
       setTitle(note.title || '');
       setQuestions(note.questions || '');
       setMainContent(note.mainContent || '');
       setSummary(note.summary || '');
       setIsInitialized(true);
-    } else if (!note && !isLoading) {
-      console.log('❌ Note not found');
     }
-  }, [notes, noteId, isLoading]);
+  }, [notes, noteId, isLoading, isInitialized]);
 
-  // Auto-save with debounce - only save when initialized
+  // Debounced auto-save
   const saveNoteDebounced = useCallback(
     debounce((noteData) => {
-      console.log('💾 Auto-saving...');
       updateNote(noteId, noteData);
       setLastSaved(new Date());
     }, 1500),
-    [noteId]
+    [noteId, updateNote]
   );
 
-  // Trigger save when content changes - only after initialization
   useEffect(() => {
     if (isInitialized && currentNote) {
       saveNoteDebounced({
@@ -186,20 +67,14 @@ const NoteEditor = () => {
         summary,
       });
     }
-  }, [title, questions, mainContent, summary, isInitialized]);
+  }, [title, questions, mainContent, summary, isInitialized, currentNote, saveNoteDebounced]);
 
   const handleTogglePublic = async () => {
     try {
       const newPublicStatus = !currentNote.isPublic;
       await updateNote(noteId, { isPublic: newPublicStatus });
-      
       setCurrentNote({ ...currentNote, isPublic: newPublicStatus });
-      
-      if (newPublicStatus) {
-        toast.success('Note is now public! Anyone with the link can view it.');
-      } else {
-        toast.success('Note is now private.');
-      }
+      toast.success(newPublicStatus ? 'Note is now public!' : 'Note is now private.');
     } catch (error) {
       console.error('Error toggling public status:', error);
       toast.error('Failed to update sharing settings');
@@ -258,11 +133,8 @@ const NoteEditor = () => {
 
   return (
     <div className={`min-h-screen ${
-      theme === 'dark' ? 'bg-gray-900 dark' : 'bg-[#f5f1e8] light'
+      theme === 'dark' ? 'bg-gray-900' : 'bg-[#f5f1e8]'
     }`}>
-      {/* Inject custom Quill styles */}
-      <style>{quillStyles}</style>
-
       {/* Header */}
       <div className={`sticky top-0 z-20 border-b ${
         theme === 'dark'
@@ -347,14 +219,14 @@ const NoteEditor = () => {
                   Questions & Key Points
                 </h2>
               </div>
-              <div className="minimal-editor">
-                <ReactQuill
-                  theme="snow"
+              <div className="p-6">
+                <textarea
                   value={questions}
-                  onChange={setQuestions}
-                  modules={questionsModules}
-                  formats={formats}
+                  onChange={(e) => setQuestions(e.target.value)}
                   placeholder="• Key questions&#10;• Important terms&#10;• Main concepts"
+                  className={`w-full min-h-[400px] bg-transparent border-none outline-none resize-none placeholder-gray-400 whitespace-pre-wrap break-words ${
+                    theme === 'dark' ? 'text-gray-100' : 'text-gray-900'
+                  }`}
                 />
               </div>
             </div>
@@ -380,15 +252,14 @@ const NoteEditor = () => {
                   Main Notes
                 </h2>
               </div>
-              <div className="minimal-editor">
-                <ReactQuill
-                  theme="snow"
+              <div className="p-6">
+                <textarea
                   value={mainContent}
-                  onChange={setMainContent}
-                  modules={mainNotesModules}
-                  formats={formats}
+                  onChange={(e) => setMainContent(e.target.value)}
                   placeholder="Start taking notes..."
-                  style={{ minHeight: '400px' }}
+                  className={`w-full min-h-[500px] bg-transparent border-none outline-none resize-none leading-relaxed placeholder-gray-400 whitespace-pre-wrap break-words ${
+                    theme === 'dark' ? 'text-gray-100' : 'text-gray-900'
+                  }`}
                 />
               </div>
             </div>
@@ -410,14 +281,14 @@ const NoteEditor = () => {
                   Summary
                 </h2>
               </div>
-              <div className="minimal-editor">
-                <ReactQuill
-                  theme="snow"
+              <div className="p-6">
+                <textarea
                   value={summary}
-                  onChange={setSummary}
-                  modules={summaryModules}
-                  formats={formats}
+                  onChange={(e) => setSummary(e.target.value)}
                   placeholder="Summarize the key points from your notes..."
+                  className={`w-full min-h-[150px] bg-transparent border-none outline-none resize-none placeholder-gray-400 whitespace-pre-wrap break-words ${
+                    theme === 'dark' ? 'text-gray-100' : 'text-gray-900'
+                  }`}
                 />
               </div>
             </div>
