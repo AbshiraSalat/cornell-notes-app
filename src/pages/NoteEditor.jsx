@@ -1,8 +1,67 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { debounce } from '../utils/helpers';
 import toast from 'react-hot-toast';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
+
+// Custom styles for Quill to match your theme
+const quillStyles = `
+  .ql-editor {
+    min-height: 200px;
+    font-size: 16px;
+    line-height: 1.6;
+  }
+  .ql-editor.ql-blank::before {
+    font-style: normal;
+    color: #9ca3af;
+  }
+  .dark .ql-toolbar {
+    border-color: #374151 !important;
+    background: #1f2937;
+  }
+  .dark .ql-container {
+    border-color: #374151 !important;
+  }
+  .dark .ql-editor {
+    color: #f3f4f6;
+  }
+  .dark .ql-stroke {
+    stroke: #9ca3af !important;
+  }
+  .dark .ql-fill {
+    fill: #9ca3af !important;
+  }
+  .dark .ql-picker-label {
+    color: #9ca3af !important;
+  }
+  .dark .ql-picker-options {
+    background: #1f2937 !important;
+    border-color: #374151 !important;
+  }
+  .dark .ql-picker-item {
+    color: #f3f4f6 !important;
+  }
+  .light .ql-toolbar {
+    border-color: #d1d5db !important;
+    background: #f9fafb;
+  }
+  .light .ql-container {
+    border-color: #d1d5db !important;
+  }
+  .minimal-editor .ql-toolbar {
+    border: none !important;
+    border-bottom: 1px solid #e5e7eb !important;
+    padding: 8px 12px;
+  }
+  .minimal-editor .ql-container {
+    border: none !important;
+  }
+  .dark .minimal-editor .ql-toolbar {
+    border-bottom-color: #374151 !important;
+  }
+`;
 
 const NoteEditor = () => {
   const { noteId } = useParams();
@@ -18,6 +77,44 @@ const NoteEditor = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isInitialized, setIsInitialized] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+
+  // Quill modules configuration
+  const questionsModules = useMemo(() => ({
+    toolbar: [
+      ['bold', 'italic', 'underline'],
+      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+    ]
+  }), []);
+
+  const mainNotesModules = useMemo(() => ({
+    toolbar: [
+      [{ 'header': [1, 2, 3, false] }],
+      ['bold', 'italic', 'underline', 'strike'],
+      [{ 'color': [] }, { 'background': [] }],
+      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+      [{ 'indent': '-1'}, { 'indent': '+1' }],
+      ['blockquote', 'code-block'],
+      ['link', 'image'],
+      ['clean']
+    ]
+  }), []);
+
+  const summaryModules = useMemo(() => ({
+    toolbar: [
+      ['bold', 'italic', 'underline'],
+      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+      ['link']
+    ]
+  }), []);
+
+  const formats = [
+    'header',
+    'bold', 'italic', 'underline', 'strike',
+    'color', 'background',
+    'list', 'bullet', 'indent',
+    'blockquote', 'code-block',
+    'link', 'image'
+  ];
 
   // Load notes on mount - only once
   useEffect(() => {
@@ -161,8 +258,11 @@ const NoteEditor = () => {
 
   return (
     <div className={`min-h-screen ${
-      theme === 'dark' ? 'bg-gray-900' : 'bg-[#f5f1e8]'
+      theme === 'dark' ? 'bg-gray-900 dark' : 'bg-[#f5f1e8] light'
     }`}>
+      {/* Inject custom Quill styles */}
+      <style>{quillStyles}</style>
+
       {/* Header */}
       <div className={`sticky top-0 z-20 border-b ${
         theme === 'dark'
@@ -247,14 +347,14 @@ const NoteEditor = () => {
                   Questions & Key Points
                 </h2>
               </div>
-              <div className="p-6">
-                <textarea
+              <div className="minimal-editor">
+                <ReactQuill
+                  theme="snow"
                   value={questions}
-                  onChange={(e) => setQuestions(e.target.value)}
+                  onChange={setQuestions}
+                  modules={questionsModules}
+                  formats={formats}
                   placeholder="• Key questions&#10;• Important terms&#10;• Main concepts"
-                  className={`w-full min-h-[400px] bg-transparent border-none outline-none resize-none placeholder-gray-400 ${
-                    theme === 'dark' ? 'text-gray-100' : 'text-gray-900'
-                  }`}
                 />
               </div>
             </div>
@@ -280,14 +380,15 @@ const NoteEditor = () => {
                   Main Notes
                 </h2>
               </div>
-              <div className="p-6">
-                <textarea
+              <div className="minimal-editor">
+                <ReactQuill
+                  theme="snow"
                   value={mainContent}
-                  onChange={(e) => setMainContent(e.target.value)}
+                  onChange={setMainContent}
+                  modules={mainNotesModules}
+                  formats={formats}
                   placeholder="Start taking notes..."
-                  className={`w-full min-h-[500px] bg-transparent border-none outline-none resize-none leading-relaxed placeholder-gray-400 ${
-                    theme === 'dark' ? 'text-gray-100' : 'text-gray-900'
-                  }`}
+                  style={{ minHeight: '400px' }}
                 />
               </div>
             </div>
@@ -309,14 +410,14 @@ const NoteEditor = () => {
                   Summary
                 </h2>
               </div>
-              <div className="p-6">
-                <textarea
+              <div className="minimal-editor">
+                <ReactQuill
+                  theme="snow"
                   value={summary}
-                  onChange={(e) => setSummary(e.target.value)}
+                  onChange={setSummary}
+                  modules={summaryModules}
+                  formats={formats}
                   placeholder="Summarize the key points from your notes..."
-                  className={`w-full min-h-[150px] bg-transparent border-none outline-none resize-none placeholder-gray-400 ${
-                    theme === 'dark' ? 'text-gray-100' : 'text-gray-900'
-                  }`}
                 />
               </div>
             </div>

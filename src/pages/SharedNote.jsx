@@ -2,6 +2,135 @@ import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../config/firebase";
+import DOMPurify from 'dompurify';
+
+// Styles for rendering Quill content in read-only mode
+const contentStyles = `
+  .note-content {
+    font-size: 15px;
+    line-height: 1.7;
+  }
+  .note-content h1 {
+    font-size: 1.75em;
+    font-weight: 700;
+    margin: 0.5em 0;
+  }
+  .note-content h2 {
+    font-size: 1.5em;
+    font-weight: 600;
+    margin: 0.5em 0;
+  }
+  .note-content h3 {
+    font-size: 1.25em;
+    font-weight: 600;
+    margin: 0.5em 0;
+  }
+  .note-content p {
+    margin: 0.5em 0;
+  }
+  .note-content ul, .note-content ol {
+    margin: 0.5em 0;
+    padding-left: 1.5em;
+  }
+  .note-content li {
+    margin: 0.25em 0;
+  }
+  .note-content blockquote {
+    border-left: 3px solid #6366f1;
+    padding-left: 1em;
+    margin: 0.5em 0;
+    color: #94a3b8;
+    font-style: italic;
+  }
+  .note-content pre {
+    background: #1e293b;
+    border-radius: 8px;
+    padding: 1em;
+    overflow-x: auto;
+    margin: 0.5em 0;
+  }
+  .note-content code {
+    background: #1e293b;
+    padding: 0.2em 0.4em;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.9em;
+  }
+  .note-content pre code {
+    background: transparent;
+    padding: 0;
+  }
+  .note-content a {
+    color: #60a5fa;
+    text-decoration: underline;
+  }
+  .note-content a:hover {
+    color: #93c5fd;
+  }
+  .note-content img {
+    max-width: 100%;
+    border-radius: 8px;
+    margin: 0.5em 0;
+  }
+  .note-content strong {
+    font-weight: 600;
+    color: #f1f5f9;
+  }
+  .note-content em {
+    font-style: italic;
+  }
+  .note-content u {
+    text-decoration: underline;
+  }
+  .note-content s {
+    text-decoration: line-through;
+  }
+`;
+
+// Component to safely render HTML content
+const RichContent = ({ html, fallbackText }) => {
+  // Check if content is HTML (from rich text editor) or plain text
+  const isHTML = html && (
+    html.includes('<p>') || 
+    html.includes('<ul>') || 
+    html.includes('<ol>') || 
+    html.includes('<h1>') ||
+    html.includes('<h2>') ||
+    html.includes('<h3>') ||
+    html.includes('<strong>') ||
+    html.includes('<em>')
+  );
+
+  if (!html || html.trim() === '' || html === '<p><br></p>') {
+    return (
+      <span className="text-slate-500">
+        {fallbackText}
+      </span>
+    );
+  }
+
+  if (isHTML) {
+    // Sanitize HTML to prevent XSS attacks
+    const sanitizedHTML = DOMPurify.sanitize(html, {
+      ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 's', 'h1', 'h2', 'h3', 'ul', 'ol', 'li', 'blockquote', 'pre', 'code', 'a', 'img', 'span'],
+      ALLOWED_ATTR: ['href', 'src', 'alt', 'class', 'style', 'target'],
+    });
+
+    return (
+      <div 
+        className="note-content text-slate-100/90"
+        dangerouslySetInnerHTML={{ __html: sanitizedHTML }}
+      />
+    );
+  }
+
+  // Fallback for plain text content (backwards compatibility)
+  return (
+    <div className="text-sm whitespace-pre-wrap break-words text-slate-100/90 leading-relaxed">
+      {html}
+    </div>
+  );
+};
 
 const SharedNote = () => {
   const { noteId } = useParams();
@@ -68,6 +197,9 @@ const SharedNote = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50 px-4 py-8">
+      {/* Inject content styles */}
+      <style>{contentStyles}</style>
+
       {/* Top bar */}
       <header className="max-w-5xl mx-auto mb-6 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -133,13 +265,10 @@ const SharedNote = () => {
                 </p>
               </div>
               <div className="px-6 sm:px-8 py-5">
-                <div className="text-sm whitespace-pre-wrap break-words text-slate-100/90 leading-relaxed">
-                  {note.questions?.trim() || (
-                    <span className="text-slate-500">
-                      No questions added for this note yet.
-                    </span>
-                  )}
-                </div>
+                <RichContent 
+                  html={note.questions} 
+                  fallbackText="No questions added for this note yet."
+                />
               </div>
             </section>
 
@@ -154,13 +283,10 @@ const SharedNote = () => {
                 </p>
               </div>
               <div className="px-6 sm:px-8 py-5">
-                <div className="text-sm whitespace-pre-wrap break-words text-slate-100/90 leading-relaxed">
-                  {note.mainContent?.trim() || (
-                    <span className="text-slate-500">
-                      No main notes recorded for this session yet.
-                    </span>
-                  )}
-                </div>
+                <RichContent 
+                  html={note.mainContent} 
+                  fallbackText="No main notes recorded for this session yet."
+                />
               </div>
             </section>
           </div>
@@ -172,18 +298,14 @@ const SharedNote = () => {
                 Summary
               </h2>
               <p className="text-[11px] text-slate-500 mt-1">
-                One–paragraph synthesis of the main ideas in your own words.
+                One-paragraph synthesis of the main ideas in your own words.
               </p>
             </div>
             <div className="px-6 sm:px-8 pb-6 pt-4">
-              <div className="text-sm whitespace-pre-wrap break-words text-slate-100/90 leading-relaxed">
-                {note.summary?.trim() || (
-                  <span className="text-slate-500">
-                    No summary yet. Summarizing after class is the most powerful
-                    part of Cornell notes.
-                  </span>
-                )}
-              </div>
+              <RichContent 
+                html={note.summary} 
+                fallbackText="No summary yet. Summarizing after class is the most powerful part of Cornell notes."
+              />
             </div>
           </section>
         </div>
